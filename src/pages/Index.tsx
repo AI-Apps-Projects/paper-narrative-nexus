@@ -1,7 +1,7 @@
-
 import { FileText, GitBranch, TrendingUp, Upload, Brain, Network } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   return (
@@ -73,8 +73,8 @@ const Index = () => {
                   <span className="text-sm text-slate-700">Citation analysis</span>
                 </div>
               </div>
-              <Button variant="outline" className="w-full mt-6 group-hover:bg-emerald-50 group-hover:border-emerald-300">
-                View Analysis
+              <Button variant="outline" className="w-full mt-6 group-hover:bg-emerald-50 group-hover:border-emerald-300" asChild>
+                <Link to="/analysis">View Analysis</Link>
               </Button>
             </CardContent>
           </Card>
@@ -109,8 +109,8 @@ const Index = () => {
                   <span className="text-sm text-slate-700">Interactive visualization</span>
                 </div>
               </div>
-              <Button variant="outline" className="w-full mt-6 group-hover:bg-purple-50 group-hover:border-purple-300">
-                Explore Graph
+              <Button variant="outline" className="w-full mt-6 group-hover:bg-purple-50 group-hover:border-purple-300" asChild>
+                <Link to="/concept-graph">Explore Graph</Link>
               </Button>
             </CardContent>
           </Card>
@@ -145,8 +145,8 @@ const Index = () => {
                   <span className="text-sm text-slate-700">Conclusion strength</span>
                 </div>
               </div>
-              <Button variant="outline" className="w-full mt-6 group-hover:bg-orange-50 group-hover:border-orange-300">
-                View Timeline
+              <Button variant="outline" className="w-full mt-6 group-hover:bg-orange-50 group-hover:border-orange-300" asChild>
+                <Link to="/narrative-arc">View Timeline</Link>
               </Button>
             </CardContent>
           </Card>
