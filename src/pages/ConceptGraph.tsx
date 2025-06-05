@@ -4,8 +4,139 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
+import { useState, useCallback } from "react";
+import {
+  ReactFlow,
+  MiniMap,
+  Controls,
+  Background,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  Connection,
+  Edge,
+  Node,
+  Position,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+
+// Sample data matching your structure
+const sampleNodes = [
+  {"name": "Neural Networks", "type": "Model", "definition": "Computational models inspired by biological neural networks", "page": 1},
+  {"name": "Transformers", "type": "Algorithm", "definition": "Attention-based neural network architecture", "page": 3},
+  {"name": "BERT", "type": "Model", "definition": "Bidirectional Encoder Representations from Transformers", "page": 5},
+  {"name": "Attention Mechanism", "type": "Method", "definition": "Mechanism to focus on relevant parts of input", "page": 2},
+  {"name": "Language Models", "type": "Model", "definition": "Models that predict probability of word sequences", "page": 4},
+  {"name": "GLUE Benchmark", "type": "Dataset", "definition": "General Language Understanding Evaluation benchmark", "page": 7},
+  {"name": "F1 Score", "type": "Metric", "definition": "Harmonic mean of precision and recall", "page": 6},
+];
+
+const sampleEdges = [
+  {"source": "Neural Networks", "target": "Transformers", "relationship": "IS-A", "page": 3},
+  {"source": "Transformers", "target": "BERT", "relationship": "USES", "page": 5},
+  {"source": "Transformers", "target": "Attention Mechanism", "relationship": "USES", "page": 3},
+  {"source": "BERT", "target": "Language Models", "relationship": "IS-A", "page": 5},
+  {"source": "BERT", "target": "GLUE Benchmark", "relationship": "EVALUATES-ON", "page": 7},
+  {"source": "GLUE Benchmark", "target": "F1 Score", "relationship": "USES", "page": 7},
+];
+
+// Color mapping for concept types
+const typeColors = {
+  "Model": "#8b5cf6",
+  "Algorithm": "#3b82f6", 
+  "Dataset": "#10b981",
+  "Metric": "#f59e0b",
+  "Method": "#ef4444"
+};
+
+// Convert sample data to React Flow format
+const createFlowNodes = (graphNodes: typeof sampleNodes): Node[] => {
+  return graphNodes.map((node, index) => ({
+    id: node.name,
+    type: 'default',
+    position: { 
+      x: (index % 4) * 250 + 100, 
+      y: Math.floor(index / 4) * 150 + 100 
+    },
+    data: { 
+      label: node.name,
+      type: node.type,
+      definition: node.definition,
+      page: node.page
+    },
+    style: {
+      background: typeColors[node.type as keyof typeof typeColors] || '#6b7280',
+      color: 'white',
+      border: '1px solid #374151',
+      borderRadius: '8px',
+      fontSize: '12px',
+      padding: '10px',
+      minWidth: '120px',
+      textAlign: 'center'
+    }
+  }));
+};
+
+const createFlowEdges = (graphEdges: typeof sampleEdges): Edge[] => {
+  return graphEdges.map((edge, index) => ({
+    id: `edge-${index}`,
+    source: edge.source,
+    target: edge.target,
+    label: edge.relationship,
+    type: 'smoothstep',
+    labelStyle: { fontSize: '10px', fontWeight: 'bold' },
+    style: { stroke: '#6b7280', strokeWidth: 2 }
+  }));
+};
 
 const ConceptGraph = () => {
+  const [nodes, setNodes, onNodesChange] = useNodesState(createFlowNodes(sampleNodes));
+  const [edges, setEdges, onEdgesChange] = useEdgesState(createFlowEdges(sampleEdges));
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [visibleTypes, setVisibleTypes] = useState<Set<string>>(new Set(Object.keys(typeColors)));
+
+  const onConnect = useCallback(
+    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    [setEdges],
+  );
+
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    setSelectedNode(node);
+  }, []);
+
+  const toggleTypeVisibility = (type: string) => {
+    const newVisibleTypes = new Set(visibleTypes);
+    if (newVisibleTypes.has(type)) {
+      newVisibleTypes.delete(type);
+    } else {
+      newVisibleTypes.add(type);
+    }
+    setVisibleTypes(newVisibleTypes);
+
+    // Filter nodes based on visibility
+    const filteredNodes = createFlowNodes(sampleNodes).filter(node => 
+      newVisibleTypes.has(node.data.type)
+    );
+    setNodes(filteredNodes);
+
+    // Filter edges to only show connections between visible nodes
+    const visibleNodeIds = new Set(filteredNodes.map(n => n.id));
+    const filteredEdges = createFlowEdges(sampleEdges).filter(edge =>
+      visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
+    );
+    setEdges(filteredEdges);
+  };
+
+  const getTypeCounts = () => {
+    const counts: Record<string, number> = {};
+    sampleNodes.forEach(node => {
+      counts[node.type] = (counts[node.type] || 0) + 1;
+    });
+    return counts;
+  };
+
+  const typeCounts = getTypeCounts();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
       {/* Header */}
@@ -69,54 +200,35 @@ const ConceptGraph = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <h4 className="font-medium text-sm text-slate-700">Zoom & Navigation</h4>
-                <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" className="flex-1">
-                    <ZoomIn className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1">
-                    <ZoomOut className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1">
-                    <RotateCcw className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
                 <h4 className="font-medium text-sm text-slate-700">Concept Types</h4>
                 <div className="space-y-2">
-                  <label className="flex items-center space-x-2">
-                    <input type="checkbox" defaultChecked className="rounded" />
-                    <span className="text-sm">Core Concepts</span>
-                    <Badge variant="secondary" className="ml-auto">12</Badge>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input type="checkbox" defaultChecked className="rounded" />
-                    <span className="text-sm">Methods</span>
-                    <Badge variant="secondary" className="ml-auto">8</Badge>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input type="checkbox" defaultChecked className="rounded" />
-                    <span className="text-sm">Metrics</span>
-                    <Badge variant="secondary" className="ml-auto">15</Badge>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input type="checkbox" defaultChecked className="rounded" />
-                    <span className="text-sm">Technologies</span>
-                    <Badge variant="secondary" className="ml-auto">12</Badge>
-                  </label>
+                  {Object.entries(typeColors).map(([type, color]) => (
+                    <label key={type} className="flex items-center space-x-2">
+                      <input 
+                        type="checkbox" 
+                        checked={visibleTypes.has(type)}
+                        onChange={() => toggleTypeVisibility(type)}
+                        className="rounded" 
+                      />
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: color }}
+                      ></div>
+                      <span className="text-sm">{type}</span>
+                      <Badge variant="secondary" className="ml-auto">{typeCounts[type] || 0}</Badge>
+                    </label>
+                  ))}
                 </div>
               </div>
 
               <div className="space-y-2">
-                <h4 className="font-medium text-sm text-slate-700">Layout Options</h4>
-                <select className="w-full p-2 text-sm border rounded-md">
-                  <option>Force-directed</option>
-                  <option>Hierarchical</option>
-                  <option>Circular</option>
-                  <option>Grid</option>
-                </select>
+                <h4 className="font-medium text-sm text-slate-700">Legend</h4>
+                <div className="text-xs space-y-1">
+                  <div>• <strong>USES:</strong> One concept uses another</div>
+                  <div>• <strong>IS-A:</strong> Inheritance relationship</div>
+                  <div>• <strong>PART-OF:</strong> Component relationship</div>
+                  <div>• <strong>EVALUATES-ON:</strong> Evaluation relationship</div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -127,92 +239,72 @@ const ConceptGraph = () => {
               <CardTitle className="flex items-center justify-between">
                 <span>Interactive Concept Network</span>
                 <div className="flex items-center space-x-2">
-                  <Badge variant="outline">47 nodes</Badge>
-                  <Badge variant="outline">128 edges</Badge>
+                  <Badge variant="outline">{nodes.length} nodes</Badge>
+                  <Badge variant="outline">{edges.length} edges</Badge>
                 </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="aspect-[16/10] bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border-2 border-dashed border-purple-200 flex items-center justify-center">
-                <div className="text-center space-y-4">
-                  <Network className="w-16 h-16 text-purple-400 mx-auto" />
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-700">Interactive Concept Graph</h3>
-                    <p className="text-slate-500">Drag nodes to explore relationships</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 max-w-md mx-auto text-sm">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
-                      <span>Core Concepts</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                      <span>Methods</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-emerald-500 rounded-full"></div>
-                      <span>Metrics</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
-                      <span>Technologies</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="h-[600px] border rounded-lg">
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onConnect={onConnect}
+                  onNodeClick={onNodeClick}
+                  fitView
+                  attributionPosition="bottom-left"
+                >
+                  <Controls />
+                  <MiniMap 
+                    nodeStrokeColor={(n) => typeColors[n.data?.type as keyof typeof typeColors] || '#6b7280'}
+                    nodeColor={(n) => typeColors[n.data?.type as keyof typeof typeColors] || '#6b7280'}
+                    nodeBorderRadius={2}
+                  />
+                  <Background variant="dots" gap={12} size={1} />
+                </ReactFlow>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Concept Details */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Selected Concept: Neural Networks</CardTitle>
-            <CardDescription>Core concept with 12 direct relationships</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-semibold mb-3">Connected Concepts</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                    <span className="text-sm">Transformers</span>
-                    <Badge variant="outline">Strong</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                    <span className="text-sm">Attention Mechanisms</span>
-                    <Badge variant="outline">Strong</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                    <span className="text-sm">Language Models</span>
-                    <Badge variant="outline">Medium</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                    <span className="text-sm">BERT</span>
-                    <Badge variant="outline">Medium</Badge>
+        {selectedNode && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Selected Concept: {selectedNode.data.label}</CardTitle>
+              <CardDescription>
+                {selectedNode.data.type} concept from page {selectedNode.data.page}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-semibold mb-3">Definition</h4>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    {selectedNode.data.definition}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-3">Connected Concepts</h4>
+                  <div className="space-y-2">
+                    {edges
+                      .filter(edge => edge.source === selectedNode.id || edge.target === selectedNode.id)
+                      .map((edge, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                          <span className="text-sm">
+                            {edge.source === selectedNode.id ? edge.target : edge.source}
+                          </span>
+                          <Badge variant="outline">{edge.label}</Badge>
+                        </div>
+                      ))}
                   </div>
                 </div>
               </div>
-              <div>
-                <h4 className="font-semibold mb-3">Concept Definition</h4>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Neural networks form the foundational architecture for modern NLP systems. In this paper, 
-                  they are discussed as the base computational model that enables learning complex language 
-                  patterns through interconnected layers of artificial neurons.
-                </p>
-                <div className="mt-4">
-                  <h5 className="font-medium text-sm mb-2">Appears in sections:</h5>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">Introduction</Badge>
-                    <Badge variant="secondary">Methodology</Badge>
-                    <Badge variant="secondary">Results</Badge>
-                    <Badge variant="secondary">Discussion</Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );
